@@ -17,6 +17,7 @@ import (
 	"github.com/ananthakumaran/paisa/internal/server/assets"
 	"github.com/ananthakumaran/paisa/internal/server/goal"
 	"github.com/ananthakumaran/paisa/internal/server/liabilities"
+	"github.com/ananthakumaran/paisa/internal/server/stocks"
 	"github.com/ananthakumaran/paisa/internal/utils"
 	"github.com/ananthakumaran/paisa/web"
 
@@ -235,6 +236,19 @@ func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 
 	router.GET("/api/liabilities/repayment", func(c *gin.Context) {
 		c.JSON(200, liabilities.GetRepayment(db))
+	})
+
+	router.GET("/api/stocks", func(c *gin.Context) {
+		c.JSON(200, stocks.GetDashboard(db))
+	})
+
+	router.POST("/api/stocks/tag", stocks.AddTag(db))
+	router.DELETE("/api/stocks/tag", stocks.RemoveTag(db))
+
+	router.POST("/api/stocks/target-price", stocks.UpdateTargetPrice(db))
+
+	router.GET("/api/stocksdebug", func(c *gin.Context) {
+		c.JSON(200, stocks.GetBalance(db))
 	})
 
 	router.GET("/api/logs", func(c *gin.Context) {
