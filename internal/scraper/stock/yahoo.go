@@ -90,6 +90,11 @@ func GetHistory(ticker string, commodityName string) ([]*price.Price, error) {
 		return nil, err
 	}
 
+	// Check if the response has any results
+	if len(response.Chart.Result) == 0 {
+		return nil, fmt.Errorf("no data returned for ticker %s", ticker)
+	}
+
 	var prices []*price.Price
 	result := response.Chart.Result[0]
 	needExchangePrice := false
@@ -100,6 +105,11 @@ func GetHistory(ticker string, commodityName string) ([]*price.Price, error) {
 		exchangeResponse, err := getTicker(fmt.Sprintf("%s%s=X", result.Meta.Currency, config.DefaultCurrency()))
 		if err != nil {
 			return nil, err
+		}
+
+		// Check if the exchange response has any results
+		if len(exchangeResponse.Chart.Result) == 0 {
+			return nil, fmt.Errorf("no exchange rate data returned for %s%s", result.Meta.Currency, config.DefaultCurrency())
 		}
 
 		exchangeResult := exchangeResponse.Chart.Result[0]

@@ -20,3 +20,11 @@ you can ask on [Matrix chat](https://matrix.to/#/#paisa:matrix.org).
 ## License
 
 This software is licensed under [the AGPL 3 or later license](./COPYING).
+
+
+## How to bring up dev setup
+
+npm install
+go mod download
+npm run parser-build
+make develop
