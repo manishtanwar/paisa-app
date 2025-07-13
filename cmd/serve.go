@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/ananthakumaran/paisa/internal/model"
 	"github.com/ananthakumaran/paisa/internal/server"
@@ -26,7 +29,25 @@ var serveCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		server.Listen(db, port)
+
+		// Set up signal handling for graceful shutdown
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// Handle shutdown signals
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+		go func() {
+			sig := <-sigChan
+			log.Infof("Received signal %v, initiating graceful shutdown...", sig)
+			cancel()
+		}()
+
+		// Start the server with context
+		if err := server.ListenWithContext(ctx, db, port); err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
