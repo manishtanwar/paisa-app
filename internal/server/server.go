@@ -137,6 +137,15 @@ func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 	router.GET("/api/expense", func(c *gin.Context) {
 		c.JSON(200, GetExpense(db))
 	})
+	router.GET("/api/expense/allocation", func(c *gin.Context) {
+		c.JSON(200, GetExpenseAllocation(db, c))
+	})
+	router.GET("/api/expense/timeline", func(c *gin.Context) {
+		c.JSON(200, GetExpenseTimeline(db, c))
+	})
+	router.GET("/api/expense/transactions", func(c *gin.Context) {
+		c.JSON(200, GetExpenseTransactions(db, c))
+	})
 
 	router.GET("/api/budget", func(c *gin.Context) {
 		c.JSON(200, GetBudget(db))
