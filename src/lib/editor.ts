@@ -23,9 +23,14 @@ export { editorState } from "../store";
 
 async function lint(editor: EditorView): Promise<Diagnostic[]> {
   const doc = editor.state.doc;
+  const el = editor.dom as HTMLElement;
+  const fileName =
+    el.getAttribute("data-filename") ||
+    (el.closest('[data-filename]') as HTMLElement)?.getAttribute("data-filename") ||
+    "";
   const response = await ajax("/api/editor/validate", {
     method: "POST",
-    body: JSON.stringify({ name: "", content: editor.state.doc.toString() }),
+    body: JSON.stringify({ name: fileName, content: editor.state.doc.toString() }),
     background: true
   });
 
@@ -69,6 +74,7 @@ export function createEditor(
     autocompletions?: Record<string, string[]>;
     readonly?: boolean;
     keybindings?: readonly KeyBinding[];
+    fileName?: string;
   }
 ) {
   editorState.set(initialEditorState);
@@ -78,7 +84,7 @@ export function createEditor(
       keymap.of(opts.keybindings || []),
       basicSetup,
       State.readOnly.of(!!opts.readonly),
-      EditorView.contentAttributes.of({ "data-enable-grammarly": "false" }),
+      EditorView.contentAttributes.of({ "data-enable-grammarly": "false", "data-filename": opts.fileName || "" }),
       StreamLanguage.define(ledger),
       lintGutter(),
       linter(lint),

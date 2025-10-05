@@ -168,8 +168,11 @@
           string: accounts,
           strong: payees,
           unit: commodities
-        }
+        },
+        fileName: selectedFile.name
       });
+      // ensure attribute is present on the containing node too for safer lookup
+      (editorDom as HTMLElement).setAttribute("data-filename", selectedFile.name);
       if (lineNumber > 0) {
         moveToLine(editor, lineNumber, true);
         focus(editor);

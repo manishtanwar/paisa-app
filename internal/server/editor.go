@@ -136,8 +136,19 @@ func ValidateFile(file LedgerFile) gin.H {
 
 func validateFile(file LedgerFile) ([]ledger.LedgerFileError, string, error) {
 	path := config.GetJournalPath()
+	dir := filepath.Dir(path)
 
-	tmpfile, err := os.CreateTemp(filepath.Dir(path), "paisa-tmp-")
+	// Build the full path to the file being edited
+	filePath, err := utils.BuildSubPath(dir, file.Name)
+	if err != nil {
+		log.Warn(err)
+		return nil, "", err
+	}
+
+	// Create temporary file in the same directory as the original file
+	fileDir := filepath.Dir(filePath)
+
+	tmpfile, err := os.CreateTemp(fileDir, "paisa-tmp-")
 	if err != nil {
 		log.Fatal(err)
 	}
