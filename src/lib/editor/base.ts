@@ -15,7 +15,15 @@ import {
   lineNumbers
 } from "@codemirror/view";
 
-export const basicSetup: Extension = [
+export const editorKeymap = [
+  ...defaultKeymap,
+  ...searchKeymap,
+  ...historyKeymap,
+  ...completionKeymap,
+  ...lintKeymap
+];
+
+export const basicExtensions: Extension = [
   lineNumbers(),
   highlightActiveLineGutter(),
   highlightSpecialChars(),
@@ -25,12 +33,10 @@ export const basicSetup: Extension = [
   syntaxHighlighting(classHighlighter),
   autocompletion(),
   highlightActiveLine(),
-  search({ top: true }),
-  keymap.of([
-    ...defaultKeymap,
-    ...searchKeymap,
-    ...historyKeymap,
-    ...completionKeymap,
-    ...lintKeymap
-  ])
+  search({ top: true })
+];
+
+export const basicSetup: Extension = [
+  basicExtensions,
+  keymap.of(editorKeymap)
 ];

@@ -7,9 +7,17 @@
   export let help = "Create or overwrite existing file";
   export let placeholder = "expense.ledger";
   export let open = false;
+  export let directoryPrefix = "";
   let destinationFile = "";
 
   const dispatch = createEventDispatcher();
+
+  // Update destinationFile when directoryPrefix changes and modal opens
+  $: if (open && directoryPrefix) {
+    destinationFile = directoryPrefix + "/";
+  } else if (!open) {
+    destinationFile = "";
+  }
 </script>
 
 <Modal bind:active={open}>

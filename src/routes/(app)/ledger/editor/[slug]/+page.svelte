@@ -21,6 +21,7 @@
   import FileTree from "$lib/components/FileTree.svelte";
   import FileModal from "$lib/components/FileModal.svelte";
   import { page } from "$app/stores";
+  import { vimMode } from "../../../../../persisted_store";
 
   export let data: PageData;
   let editorDom: Element;
@@ -32,6 +33,7 @@
   let payees: string[] = [];
   let selectedVersion: string = null;
   let lineNumber = 0;
+  let currentVimMode = false;
 
   function command(fn: Function) {
     return () => {
@@ -157,8 +159,20 @@
   }
 
   $: if (selectedFile) {
-    if (!editor || editor.state.doc.toString() != selectedFile.content) {
+    if (
+      !editor ||
+      editor.state.doc.toString() != selectedFile.content ||
+      currentVimMode != $vimMode
+    ) {
       if (editor) {
+        // preserve content if reloading due to vim mode change
+        const currentFileName = (editorDom as HTMLElement).getAttribute("data-filename");
+        if (
+          currentFileName === selectedFile.name &&
+          editor.state.doc.toString() != selectedFile.content
+        ) {
+          selectedFile.content = editor.state.doc.toString();
+        }
         editor.destroy();
       }
 
@@ -169,8 +183,11 @@
           strong: payees,
           unit: commodities
         },
-        fileName: selectedFile.name
+        fileName: selectedFile.name,
+        vimMode: $vimMode,
+        onSave: save
       });
+      currentVimMode = $vimMode;
       // ensure attribute is present on the containing node too for safer lookup
       (editorDom as HTMLElement).setAttribute("data-filename", selectedFile.name);
       if (lineNumber > 0) {
@@ -184,7 +201,9 @@
   }
 
   let modalOpen = false;
-  function openCreateModal() {
+  let createDirPrefix = "";
+  function openCreateModal(dirPrefix = "") {
+    createDirPrefix = dirPrefix;
     modalOpen = true;
   }
 
@@ -218,7 +237,13 @@
   }
 </script>
 
-<FileModal bind:open={modalOpen} on:save={(e) => createFile(e.detail)} label="Create" help="" />
+<FileModal
+  bind:open={modalOpen}
+  on:save={(e) => createFile(e.detail)}
+  label="Create"
+  help=""
+  directoryPrefix={createDirPrefix}
+/>
 
 <section class="section tab-editor max-h-screen" style="padding-bottom: 0 !important">
   <div class="container is-fluid">
@@ -287,6 +312,19 @@
             </p>
           </div>
 
+          <div class="field has-addons ml-5 mb-0">
+            <p class="control">
+              <button
+                class="button is-small"
+                class:is-link={$vimMode}
+                class:is-light={$vimMode}
+                on:click={(_e) => ($vimMode = !$vimMode)}
+              >
+                <b>V</b>
+              </button>
+            </p>
+          </div>
+
           {#if !_.isEmpty(selectedFile?.versions)}
             <div class="field has-addons ml-5 mb-0">
               <p class="control">
@@ -341,6 +379,7 @@
             <FileTree
               path=""
               on:select={(e) => selectFile(e.detail)}
+              on:createInDir={(e) => openCreateModal(e.detail)}
               files={buildDirectoryTree(_.values(filesMap))}
               selectedFileName={selectedFile?.name}
               hasUnsavedChanges={$editorState.hasUnsavedChanges}

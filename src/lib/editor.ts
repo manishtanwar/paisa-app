@@ -4,7 +4,7 @@ import { StreamLanguage } from "@codemirror/language";
 import { keymap, type KeyBinding } from "@codemirror/view";
 import { EditorState as State } from "@codemirror/state";
 import { EditorView } from "codemirror";
-import { basicSetup } from "./editor/base";
+import { basicSetup, basicExtensions, editorKeymap } from "./editor/base";
 import { history, undoDepth, redoDepth } from "@codemirror/commands";
 import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
 import _ from "lodash";
@@ -18,6 +18,7 @@ import {
 import { MergeView } from "@codemirror/merge";
 import { schedulePlugin } from "./transaction_tag";
 import dayjs from "dayjs";
+import { vim, Vim } from "@replit/codemirror-vim";
 
 export { editorState } from "../store";
 
@@ -75,14 +76,23 @@ export function createEditor(
     readonly?: boolean;
     keybindings?: readonly KeyBinding[];
     fileName?: string;
+    vimMode?: boolean;
+    onSave?: () => void;
   }
 ) {
   editorState.set(initialEditorState);
 
+  // Define :w command for vim mode save
+  if (opts.vimMode && opts.onSave) {
+    Vim.defineEx("write", "w", opts.onSave);
+  }
+
   return new EditorView({
     extensions: [
       keymap.of(opts.keybindings || []),
-      basicSetup,
+      ...(opts.vimMode ? [vim()] : []),
+      basicExtensions,
+      keymap.of(opts.vimMode ? editorKeymap.filter((k) => k.key !== "Ctrl-d" && k.mac !== "Ctrl-d") : editorKeymap),
       State.readOnly.of(!!opts.readonly),
       EditorView.contentAttributes.of({ "data-enable-grammarly": "false", "data-filename": opts.fileName || "" }),
       StreamLanguage.define(ledger),
