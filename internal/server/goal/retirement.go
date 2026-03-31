@@ -60,17 +60,18 @@ func getRetirementDetail(db *gorm.DB, conf config.RetirementGoal) gin.H {
 	balances := assets.ComputeBreakdowns(db, savingsWithCapitalGains, false)
 
 	return gin.H{
-		"type":            "retirement",
-		"name":            conf.Name,
-		"icon":            conf.Icon,
-		"savingsTimeline": accounting.RunningBalance(db, savings),
-		"savingsTotal":    savingsTotal,
-		"investmentTotal": investmentTotal,
-		"gainTotal":       gainsTotal,
-		"swr":             conf.SWR,
-		"yearlyExpense":   yearlyExpenses,
-		"xirr":            service.XIRR(db, savingsWithCapitalGains),
-		"postings":        savingsWithCapitalGains,
-		"balances":        balances,
+		"type":               "retirement",
+		"name":               conf.Name,
+		"icon":               conf.Icon,
+		"savingsTimeline":    accounting.RunningBalance(db, savings),
+		"savingsTotal":       savingsTotal,
+		"investmentTotal":    investmentTotal,
+		"gainTotal":          gainsTotal,
+		"swr":                conf.SWR,
+		"yearlyExpense":      yearlyExpenses,
+		"xirr":               service.XIRR(db, savingsWithCapitalGains),
+		"postings":           savingsWithCapitalGains,
+		"balances":           balances,
+		"allocation_targets": computeGoalAllocationTargets(savings, conf.AllocationTargets),
 	}
 }

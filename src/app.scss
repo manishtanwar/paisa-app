@@ -79,17 +79,22 @@ $footerActiveColor: #d00;
     $color-light: null;
     $color-dark: null;
 
-    @if length($components) >= 3 {
+    @if length($components)>=3 {
       $color-light: nth($components, 3);
-      @if length($components) >= 4 {
+
+      @if length($components)>=4 {
         $color-dark: nth($components, 4);
-      } @else {
+      }
+
+      @else {
         $color-luminance: colorLuminance($color);
         $darken-percentage: $color-luminance * 70%;
         $desaturate-percentage: $color-luminance * 30%;
         $color-dark: desaturate(darken($color, $darken-percentage), $desaturate-percentage);
       }
-    } @else {
+    }
+
+    @else {
       $color-lightning: max((100% - lightness($color)) - 2%, 0%);
       $color-light: lighten($color, $color-lightning);
     }
@@ -102,6 +107,7 @@ $footerActiveColor: #d00;
         background-color: rgba($color, 0.15);
         color: $black-ter;
       }
+
       .message-body {
         color: $text;
         background: $white-bis;
@@ -180,6 +186,7 @@ body {
 
 .secondary-link {
   color: $grey-dark;
+
   &:hover {
     color: $link;
     text-decoration: underline;
@@ -191,6 +198,7 @@ body {
 }
 
 .table.is-light-border tbody {
+
   td,
   th {
     border-bottom: 1px solid rgba($grey-lightest, 0.5);
@@ -408,11 +416,11 @@ svg text {
   border-radius: $radius;
 }
 
-#d3-salary-timeline .x.axis > g.tick {
+#d3-salary-timeline .x.axis>g.tick {
   display: none;
 }
 
-#d3-salary-timeline .x.axis > g.tick:nth-child(3n-1) {
+#d3-salary-timeline .x.axis>g.tick:nth-child(3n-1) {
   display: inline;
 }
 
@@ -440,12 +448,14 @@ svg text {
   overflow: hidden;
   display: flex;
   justify-content: center;
+  align-items: center;
   flex-direction: column;
-  flex-wrap: wrap;
+  text-align: center;
 }
 
 #d3-allocation-category,
-#d3-allocation-value {
+#d3-allocation-value,
+#d3-goal-balance-category {
   position: relative;
 }
 
@@ -577,6 +587,7 @@ nav.level.grid-2 {
     background-color: $white !important;
   }
 }
+
 .cm-editor {
   .cm-gutters {
     background-color: $white-ter;
@@ -687,7 +698,7 @@ nav.level.grid-2 {
     box-shadow: $shadow;
   }
 
-  .cm-tooltip-autocomplete > ul > li[aria-selected] {
+  .cm-tooltip-autocomplete>ul>li[aria-selected] {
     background-color: $grey-lightest;
     color: $black-ter;
   }
@@ -696,7 +707,7 @@ nav.level.grid-2 {
     font-weight: bold;
   }
 
-  .cm-tooltip-autocomplete > ul > li {
+  .cm-tooltip-autocomplete>ul>li {
     background-color: $white;
     color: $black-ter;
   }
@@ -734,6 +745,7 @@ nav.level.grid-2 {
 
     .cm-button {
       cursor: pointer;
+
       &:hover {
         border: 1px solid $grey-light;
       }
@@ -792,6 +804,7 @@ nav.level.grid-2 {
     ins,
     del {
       text-decoration: none !important;
+
       span {
         color: $grey-darker !important;
       }
@@ -807,8 +820,7 @@ nav.level.grid-2 {
   border-left: 1px solid $grey-lighter;
 }
 
-.sheet-editor .cm-editor {
-}
+.sheet-editor .cm-editor {}
 
 .preview-editor {
   min-height: 35px;
@@ -820,6 +832,7 @@ nav.level.grid-2 {
   background: $white;
   padding: 2px 5px;
   width: calc(100vw - 20px);
+
   @include desktop {
     width: 800px;
   }
@@ -878,6 +891,7 @@ nav.level.grid-2 {
 
   .selected-item {
     font-weight: bold;
+
     .tag {
       font-weight: normal !important;
     }
@@ -897,6 +911,7 @@ nav.level.grid-2 {
 
   button {
     color: $grey-lighter;
+
     &.sc-carousel-dot__dot_active {
       color: $grey-light;
 
@@ -943,7 +958,7 @@ nav.breadcrumb a.is-inactive {
   pointer-events: none;
 }
 
-.breadcrumb.has-chevron-separator li + li::before {
+.breadcrumb.has-chevron-separator li+li::before {
   font-family: "Font Awesome 6 Free";
   font-weight: 900;
   content: unquote('"#{ $fa-var-chevron-right }"');
@@ -1106,15 +1121,15 @@ textarea:invalid {
 }
 
 .nested.has-dropdown {
-  &:hover > .dropdown-menu {
+  &:hover>.dropdown-menu {
     display: block;
   }
 
-  > .navbar-link {
+  >.navbar-link {
     padding: 0;
     width: 100%;
 
-    > span.icon {
+    >span.icon {
       float: right;
     }
   }
@@ -1180,17 +1195,15 @@ div.is-hoverable:hover {
     -3px -3px 3px 0 rgba(255, 255, 255, 1),
     -7px -7px 7px 0 rgba(255, 255, 255, 1),
     -15px -15px 15px 0 rgba(255, 255, 255, 1) !important;
-  background: linear-gradient(
-    345deg,
-    $grey-lightest 0%,
-    $grey-lightest 60%,
-    $grey-lighter calc(60% + 1px),
-    $grey-lighter 85%,
-    $grey-light calc(85% + 1px),
-    $grey-light 95%,
-    $grey calc(95% + 1px),
-    $grey 100%
-  );
+  background: linear-gradient(345deg,
+      $grey-lightest 0%,
+      $grey-lightest 60%,
+      $grey-lighter calc(60% + 1px),
+      $grey-lighter 85%,
+      $grey-light calc(85% + 1px),
+      $grey-light 95%,
+      $grey calc(95% + 1px),
+      $grey 100%);
 
   .chip {
     color: $amber-700;

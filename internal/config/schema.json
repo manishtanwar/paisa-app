@@ -781,6 +781,23 @@
               "priority": {
                 "type": "integer",
                 "description": "Priority of the goal. Goals with higher priority will be shown first"
+              },
+              "allocation_targets": {
+                "type": "array",
+                "description": "Per-goal asset allocation targets",
+                "default": [{ "name": "Equity", "target": 75, "accounts": ["Assets:Equity:*"], "children": [] }],
+                "items": {
+                  "type": "object",
+                  "ui:header": "name",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "target": { "type": "integer", "description": "Target percentage", "minimum": 1, "maximum": 100 },
+                    "accounts": { "type": "array", "description": "List of accounts to consider for this target", "default": ["Assets:Equity:*"], "items": { "type": "string" }, "ui:widget": "accounts" },
+                    "children": { "type": "array", "ui:widget": "hidden", "items": { "type": "object" } }
+                  },
+                  "required": ["name", "target", "accounts"],
+                  "additionalProperties": false
+                }
               }
             },
             "ui:header": "name",
@@ -851,6 +868,23 @@
               "priority": {
                 "type": "integer",
                 "description": "Priority of the goal. Goals with higher priority will be shown first"
+              },
+              "allocation_targets": {
+                "type": "array",
+                "description": "Per-goal asset allocation targets",
+                "default": [{ "name": "Equity", "target": 75, "accounts": ["Assets:Equity:*"], "children": [] }],
+                "items": {
+                  "type": "object",
+                  "ui:header": "name",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "target": { "type": "integer", "description": "Target percentage", "minimum": 1, "maximum": 100 },
+                    "accounts": { "type": "array", "description": "List of accounts to consider for this target", "default": ["Assets:Equity:*"], "items": { "type": "string" }, "ui:widget": "accounts" },
+                    "children": { "type": "array", "ui:widget": "hidden", "items": { "type": "object" } }
+                  },
+                  "required": ["name", "target", "accounts"],
+                  "additionalProperties": false
+                }
               }
             },
             "ui:header": "name",
@@ -944,6 +978,13 @@
               "type": "string"
             },
             "ui:widget": "accounts"
+          },
+          "children": {
+            "type": "array",
+            "ui:widget": "hidden",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": ["name", "target", "accounts"],

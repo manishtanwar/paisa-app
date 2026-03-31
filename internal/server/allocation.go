@@ -30,10 +30,12 @@ type AllocationTargetConfig struct {
 }
 
 type AllocationTarget struct {
-	Name       string               `json:"name"`
-	Target     decimal.Decimal      `json:"target"`
-	Current    decimal.Decimal      `json:"current"`
-	Aggregates map[string]Aggregate `json:"aggregates"`
+	Name          string               `json:"name"`
+	Target        decimal.Decimal      `json:"target"`
+	Current       decimal.Decimal      `json:"current"`
+	CurrentAmount decimal.Decimal      `json:"current_amount"`
+	TargetAmount  decimal.Decimal      `json:"target_amount"`
+	Aggregates    map[string]Aggregate `json:"aggregates"`
 }
 
 func GetAllocation(db *gorm.DB) gin.H {
@@ -134,7 +136,8 @@ func computeAllocationTarget(db *gorm.DB, postings []posting.Posting, allocation
 	postings = accounting.FilterByGlob(postings, allocationTargetConfig.Accounts)
 	aggregates := computeAggregate(db, postings, date)
 	currentTotal := accounting.CurrentBalance(postings)
-	return AllocationTarget{Name: allocationTargetConfig.Name, Target: decimal.NewFromFloat(allocationTargetConfig.Target), Current: (currentTotal.Div(total)).Mul(decimal.NewFromInt(100)), Aggregates: aggregates}
+	targetAmount := total.Mul(decimal.NewFromFloat(allocationTargetConfig.Target)).Div(decimal.NewFromInt(100))
+	return AllocationTarget{Name: allocationTargetConfig.Name, Target: decimal.NewFromFloat(allocationTargetConfig.Target), Current: (currentTotal.Div(total)).Mul(decimal.NewFromInt(100)), CurrentAmount: currentTotal, TargetAmount: targetAmount, Aggregates: aggregates}
 }
 
 func computeAggregate(db *gorm.DB, postings []posting.Posting, date time.Time) map[string]Aggregate {

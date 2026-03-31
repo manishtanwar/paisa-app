@@ -1,0 +1,24 @@
+YAML example:
+goals:
+  retirement:
+    - name: Retirement
+      swr: 4
+      savings: ["Assets:*"]
+      expenses: ["Expenses:*"]
+      allocation_targets:
+        - name: Equity
+          target: 75
+          accounts: ["Assets:Equity:*"]
+          children:
+            - name: India
+              target: 80
+              accounts: ["Assets:Equity:India:*"]
+            - name: US
+              target: 20
+              accounts: ["Assets:Equity:US:*"]
+        - name: Debt
+          target: 15
+          accounts: ["Assets:Debt:*"]
+        - name: Gold
+          target: 10
+          accounts: ["Assets:Gold:*"]

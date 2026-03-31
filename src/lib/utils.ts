@@ -224,7 +224,11 @@ export interface AllocationTarget {
   name: string;
   target: number;
   current: number;
-  aggregates: { [key: string]: Aggregate };
+  current_amount?: number;
+  target_amount?: number;
+  accounts: string[];
+  aggregates?: { [key: string]: Aggregate };
+  children: AllocationTarget[];
 }
 
 export interface Income {
@@ -374,6 +378,7 @@ export interface RetirementGoalProgress {
   icon: string;
   postings: Posting[];
   balances: Record<string, AssetBreakdown>;
+  allocation_targets: AllocationTarget[];
 }
 
 export interface SavingsGoalProgress {
@@ -391,6 +396,7 @@ export interface SavingsGoalProgress {
   icon: string;
   paymentPerPeriod: number;
   balances: Record<string, AssetBreakdown>;
+  allocation_targets: AllocationTarget[];
 }
 
 export interface Legend {
