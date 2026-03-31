@@ -38,39 +38,48 @@ func Register(postings []posting.Posting) []Balance {
 }
 
 func FilterByGlob(postings []posting.Posting, accounts []string) []posting.Posting {
-	negatePresent := lo.SomeBy(accounts, func(accountGlob string) bool {
-		return accountGlob[0] == '!'
-	})
-	var combine func(collection []string, predicate func(item string) bool) bool
-	if negatePresent {
-		combine = lo.EveryBy[string]
-	} else {
-		combine = lo.SomeBy[string]
+	var positives []string
+	var negatives []string
+
+	for _, a := range accounts {
+		if a[0] == '!' {
+			negatives = append(negatives, a[1:])
+		} else {
+			positives = append(positives, a)
+		}
 	}
 
 	return lo.Filter(postings, func(p posting.Posting, _ int) bool {
-		return combine(accounts, func(accountGlob string) bool {
-			negative := false
+		account := p.Account
+		if service.IsCapitalGains(p) {
+			account = service.CapitalGainsSourceAccount(p.Account)
+		}
 
-			if accountGlob[0] == '!' {
-				negative = true
-				accountGlob = accountGlob[1:]
-			}
-
-			account := p.Account
-			if service.IsCapitalGains(p) {
-				account = service.CapitalGainsSourceAccount(p.Account)
-			}
-			match, err := filepath.Match(accountGlob, account)
+		for _, neg := range negatives {
+			match, err := filepath.Match(neg, account)
 			if err != nil {
-				log.Fatal("Invalid account glob used for filtering", accountGlob, err)
+				log.Fatal("Invalid account glob used for filtering", neg, err)
 			}
+			if match {
+				return false
+			}
+		}
 
-			if negative {
-				return !match
+		if len(positives) == 0 {
+			return true
+		}
+
+		for _, pos := range positives {
+			match, err := filepath.Match(pos, account)
+			if err != nil {
+				log.Fatal("Invalid account glob used for filtering", pos, err)
 			}
-			return match
-		})
+			if match {
+				return true
+			}
+		}
+
+		return false
 	})
 }
 
