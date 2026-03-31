@@ -9,3 +9,4 @@
         - View all transactions (in a Transaction drawer on the right side)
         - View trend analysis for that account / subaccount
     - And relevant pages for these
+- Add gold_etf category for separate taxation

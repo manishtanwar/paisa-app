@@ -27,6 +27,7 @@ const (
 	Equity65       TaxCategoryType = "equity65"
 	Equity35       TaxCategoryType = "equity35"
 	UnlistedEquity TaxCategoryType = "unlisted_equity"
+	GoldETF        TaxCategoryType = "gold_etf"
 )
 
 type CommodityType string

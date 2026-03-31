@@ -93,5 +93,13 @@ func Calculate(db *gorm.DB, quantity decimal.Decimal, commodity config.Commodity
 		}
 	}
 
+	if commodity.TaxCategory == config.GoldETF {
+		if dateDiff > ONE_YEAR {
+			longTerm = taxable.Mul(decimal.NewFromFloat(0.125))
+		} else {
+			slab = taxable
+		}
+	}
+
 	return Tax{Gain: gain, Taxable: taxable, ShortTerm: shortTerm, LongTerm: longTerm, Slab: slab}
 }
