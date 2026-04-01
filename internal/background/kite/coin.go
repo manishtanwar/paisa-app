@@ -103,10 +103,10 @@ func fetchCoinTransactions(ctx context.Context, apiKey string, accessToken strin
 // saveCoinTransactionsToLedger converts MF orders to ledger format and saves them.
 // If coinLedgerFile is non-empty, entries are appended to that file; otherwise the default journal is used.
 // Orders already present in the DB (by order_id) are skipped to prevent duplicate entries.
-func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFile string, orders []MFOrder, date string) error {
+func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFile string, orders []MFOrder, date string) (bool, error) {
 	if len(orders) == 0 {
 		log.Info("No Coin MF orders to save")
-		return nil
+		return false, nil
 	}
 
 	journalPath := config.GetJournalPath()
@@ -116,7 +116,7 @@ func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFil
 
 	journalContent, err := os.ReadFile(journalPath)
 	if err != nil {
-		return fmt.Errorf("failed to read journal file: %w", err)
+		return false, fmt.Errorf("failed to read journal file: %w", err)
 	}
 
 	commentTime := time.Now().Format("3:04 PM")
@@ -129,7 +129,7 @@ func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFil
 	for _, order := range orders {
 		exists, err := coin_order.Exists(db, order.OrderID)
 		if err != nil {
-			return fmt.Errorf("failed to check order existence: %w", err)
+			return false, fmt.Errorf("failed to check order existence: %w", err)
 		}
 		if exists {
 			log.Infof("Skipping already-recorded Coin order %s (%s)", order.OrderID, order.Fund)
@@ -144,7 +144,7 @@ func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFil
 
 	if len(pending) == 0 {
 		log.Info("No new Coin MF entries to add")
-		return nil
+		return false, nil
 	}
 
 	var entries []string
@@ -158,7 +158,7 @@ func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFil
 	updatedContent := ledger.FormatContent(string(journalContent) + tradeSection)
 	err = os.WriteFile(journalPath, []byte(updatedContent), 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write updated journal file: %w", err)
+		return false, fmt.Errorf("failed to write updated journal file: %w", err)
 	}
 
 	// Record orders in DB only after a successful ledger write
@@ -193,7 +193,7 @@ func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFil
 	}
 
 	log.Infof("Added %d Coin MF entries to journal file", len(pending))
-	return nil
+	return true, nil
 }
 
 // generateMFLedgerEntry converts a mutual fund order to ledger format.
