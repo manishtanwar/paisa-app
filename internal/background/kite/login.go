@@ -28,13 +28,14 @@ const (
 
 // KiteAccount represents a single KITE account configuration
 type KiteAccount struct {
-	Name       string `json:"name" yaml:"name"`
-	APIKey     string `json:"api_key" yaml:"api_key"`
-	APISecret  string `json:"api_secret" yaml:"api_secret"`
-	UserID     string `json:"user_id" yaml:"user_id"`
-	Password   string `json:"password" yaml:"password"`
-	TOTPToken  string `json:"totp_token" yaml:"totp_token"`
-	LedgerFile string `json:"ledger_file" yaml:"ledger_file"`
+	Name           string `json:"name" yaml:"name"`
+	APIKey         string `json:"api_key" yaml:"api_key"`
+	APISecret      string `json:"api_secret" yaml:"api_secret"`
+	UserID         string `json:"user_id" yaml:"user_id"`
+	Password       string `json:"password" yaml:"password"`
+	TOTPToken      string `json:"totp_token" yaml:"totp_token"`
+	LedgerFile     string `json:"ledger_file" yaml:"ledger_file"`
+	CoinLedgerFile string `json:"coin_ledger_file" yaml:"coin_ledger_file"`
 }
 
 // KiteConfig holds the configuration for multiple KITE Connect accounts
