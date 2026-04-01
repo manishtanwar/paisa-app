@@ -16,7 +16,12 @@ import (
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 
+	"github.com/ananthakumaran/paisa/internal/cache"
 	"github.com/ananthakumaran/paisa/internal/config"
+	"github.com/ananthakumaran/paisa/internal/ledger"
+	"github.com/ananthakumaran/paisa/internal/model"
+	kite_trade "github.com/ananthakumaran/paisa/internal/model/kite_trade"
+	"github.com/ananthakumaran/paisa/internal/prediction"
 )
 
 // KiteTime is a custom time type that can handle KITE API timestamp format
@@ -28,6 +33,11 @@ type KiteTime struct {
 func (kt *KiteTime) UnmarshalJSON(data []byte) error {
 	// Remove quotes from the JSON string
 	str := strings.Trim(string(data), `"`)
+
+	if str == "" || str == "null" {
+		kt.Time = time.Time{}
+		return nil
+	}
 
 	// Parse the specific KITE API format: "2021-05-31 16:00:36"
 	t, err := time.Parse("2006-01-02 15:04:05", str)
@@ -81,6 +91,8 @@ func (t *DailyTradesTask) Run(ctx context.Context, db *gorm.DB) error {
 		return fmt.Errorf("no KITE accounts configured")
 	}
 
+	anyChanges := false
+
 	// Process each account
 	for _, account := range kiteConfig.Accounts {
 		log.Infof("Processing account: %s", account.Name)
@@ -105,12 +117,40 @@ func (t *DailyTradesTask) Run(ctx context.Context, db *gorm.DB) error {
 		log.Infof("Found %d trades for account %s", len(trades), account.Name)
 
 		// Convert trades to ledger format and save
-		err = saveTradesToLedger(account.Name, trades, time.Now().Format("2006-01-02"))
+		changedTrades, err := saveTradesToLedger(db, account.Name, account.LedgerFile, trades, time.Now().Format("2006-01-02"))
 		if err != nil {
 			return fmt.Errorf("failed to save trades to ledger: %w", err)
 		}
+		if changedTrades {
+			anyChanges = true
+		}
 
 		log.Infof("Successfully processed %d trades for account %s", len(trades), account.Name)
+
+		// Fetch and save Coin (mutual fund) transactions
+		mfOrders, err := fetchCoinTransactions(ctx, account.APIKey, accessToken)
+		if err != nil {
+			log.Warnf("Failed to fetch Coin MF transactions for account %s: %v", account.Name, err)
+			continue
+		}
+
+		log.Infof("Found %d Coin MF orders for account %s", len(mfOrders), account.Name)
+
+		changedCoins, err := saveCoinTransactionsToLedger(db, account.Name, account.CoinLedgerFile, mfOrders, time.Now().Format("2006-01-02"))
+		if err != nil {
+			return fmt.Errorf("failed to save Coin MF transactions to ledger: %w", err)
+		}
+		if changedCoins {
+			anyChanges = true
+		}
+
+		log.Infof("Successfully processed Coin MF orders for account %s", account.Name)
+	}
+
+	if anyChanges {
+		log.Infof("Syncing journal due to new trades/coins")
+		cache.Clear()
+		model.SyncJournal(db)
 	}
 
 	return nil
@@ -126,20 +166,24 @@ func loadKiteConfig() (*KiteConfig, error) {
 		templateConfig := &KiteConfig{
 			Accounts: []KiteAccount{
 				{
-					Name:      "Primary Account",
-					APIKey:    "your_api_key_here",
-					APISecret: "your_api_secret_here",
-					UserID:    "your_user_id_here",
-					Password:  "your_password_here",
-					TOTPToken: "your_totp_secret_here",
+					Name:           "Primary Account",
+					APIKey:         "your_api_key_here",
+					APISecret:      "your_api_secret_here",
+					UserID:         "your_user_id_here",
+					Password:       "your_password_here",
+					TOTPToken:      "your_totp_secret_here",
+					LedgerFile:     "",
+					CoinLedgerFile: "",
 				},
 				{
-					Name:      "Secondary Account",
-					APIKey:    "your_second_api_key_here",
-					APISecret: "your_second_api_secret_here",
-					UserID:    "your_second_user_id_here",
-					Password:  "your_second_password_here",
-					TOTPToken: "your_second_totp_secret_here",
+					Name:           "Secondary Account",
+					APIKey:         "your_second_api_key_here",
+					APISecret:      "your_second_api_secret_here",
+					UserID:         "your_second_user_id_here",
+					Password:       "your_second_password_here",
+					TOTPToken:      "your_second_totp_secret_here",
+					LedgerFile:     "",
+					CoinLedgerFile: "",
 				},
 			},
 		}
@@ -224,52 +268,98 @@ func fetchDailyTrades(ctx context.Context, apiKey string, accessToken string) ([
 	return response.Data, nil
 }
 
-// saveTradesToLedger converts trades to ledger format and saves them
-func saveTradesToLedger(accountName string, trades []Trade, date string) error {
+// saveTradesToLedger converts trades to ledger format and saves them.
+// If ledgerFile is non-empty, trades are appended to that file; otherwise the default journal is used.
+// Trades already present in the DB (by trade_id) are skipped to prevent duplicate entries.
+func saveTradesToLedger(db *gorm.DB, accountName string, ledgerFile string, trades []Trade, date string) (bool, error) {
 	journalPath := config.GetJournalPath()
+	if ledgerFile != "" {
+		journalPath = ledgerFile
+	}
 
 	// Read existing journal content
 	journalContent, err := os.ReadFile(journalPath)
 	if err != nil {
-		return fmt.Errorf("failed to read journal file: %w", err)
+		return false, fmt.Errorf("failed to read journal file: %w", err)
 	}
 
 	commentTime := time.Now().Format("3:04 PM")
 
-	// Generate ledger entries for trades
-	var ledgerEntries []string
+	// Generate ledger entries for new (unseen) trades only
+	type pendingTrade struct {
+		entry string
+		trade Trade
+	}
+	var pending []pendingTrade
 	for _, trade := range trades {
-		entry := generateLedgerEntry(trade)
+		exists, err := kite_trade.Exists(db, trade.TradeID)
+		if err != nil {
+			return false, fmt.Errorf("failed to check trade existence: %w", err)
+		}
+		if exists {
+			log.Infof("Skipping already-recorded trade %s (%s)", trade.TradeID, trade.TradingSymbol)
+			continue
+		}
+		entry := generateLedgerEntry(db, trade)
 		if entry != "" {
-			// Add comment with date, time and account name before each entry
-			commentedEntry := fmt.Sprintf("; Auto added on %s %s - %s \n%s", date, commentTime, accountName, entry)
-			ledgerEntries = append(ledgerEntries, commentedEntry)
+			commentedEntry := fmt.Sprintf("\n; Auto added on %s %s - %s\n%s", date, commentTime, accountName, entry)
+			pending = append(pending, pendingTrade{entry: commentedEntry, trade: trade})
 		}
 	}
 
-	if len(ledgerEntries) == 0 {
-		log.Info("No valid ledger entries generated from trades")
-		return nil
+	if len(pending) == 0 {
+		log.Info("No new trade entries to add")
+		return false, nil
+	}
+
+	var entries []string
+	for _, p := range pending {
+		entries = append(entries, p.entry)
 	}
 
 	// Join entries with double newlines for better readability
-	tradeSection := "\n" + strings.Join(ledgerEntries, "\n\n") + "\n"
+	tradeSection := "\n" + strings.Join(entries, "\n\n") + "\n"
 
-	// Append to journal file
-	updatedContent := string(journalContent) + tradeSection
+	// Append to journal file and prettify
+	updatedContent := ledger.FormatContent(string(journalContent) + tradeSection)
 	err = os.WriteFile(journalPath, []byte(updatedContent), 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write updated journal file: %w", err)
+		return false, fmt.Errorf("failed to write updated journal file: %w", err)
 	}
 
-	log.Infof("Added %d trade entries to journal file", len(ledgerEntries))
-	return nil
+	// Record trades in DB only after a successful ledger write
+	for _, p := range pending {
+		t := p.trade
+		record := &kite_trade.KiteTrade{
+			TradeID:           t.TradeID,
+			OrderID:           t.OrderID,
+			ExchangeOrderID:   t.ExchangeOrderID,
+			TradingSymbol:     t.TradingSymbol,
+			Exchange:          t.Exchange,
+			TransactionType:   t.TransactionType,
+			Product:           t.Product,
+			AveragePrice:      t.AveragePrice.String(),
+			Quantity:          t.Quantity,
+			FillTimestamp:     t.FillTimestamp.Time,
+			ExchangeTimestamp: t.ExchangeTimestamp.Time,
+		}
+		if err := kite_trade.Create(db, record); err != nil {
+			log.Warnf("Failed to record trade %s in DB: %v", t.TradeID, err)
+		}
+	}
+
+	log.Infof("Added %d trade entries to journal file", len(pending))
+	return true, nil
 }
 
-// generateLedgerEntry converts a trade to ledger format
-func generateLedgerEntry(trade Trade) string {
+// generateLedgerEntry converts a trade to ledger format, using predictAccount to
+// resolve the asset account name from the existing journal's posting history.
+func generateLedgerEntry(db *gorm.DB, trade Trade) string {
 	// Use the actual trade timestamp from the API
 	tradeDate := trade.FillTimestamp.Time
+
+	// Predict the account using the trading symbol as the query
+	assetAccount := prediction.PredictAccount(db, trade.TradingSymbol, "Assets")
 
 	// Determine transaction type and quantity
 	quantity := trade.Quantity
@@ -291,9 +381,9 @@ func generateLedgerEntry(trade Trade) string {
 
 	// Generate ledger entry
 	entry := fmt.Sprintf("%s %s\n", tradeDate.Format("2006/01/02"), description)
-	entry += fmt.Sprintf("    Assets:Equity:Stocks:%s\t\t\t%d \"%s\" @ %s INR\n",
-		trade.TradingSymbol, quantity, trade.TradingSymbol, price.String())
-	entry += "    Assets:Checking:Broker:Zerodha"
+	entry += fmt.Sprintf("    %s\t\t\t%d \"%s\" @ %s INR\n",
+		assetAccount, quantity, assetAccount, price.String())
+	entry += "    Assets:Checking:Broker:Kite"
 
 	return entry
 }

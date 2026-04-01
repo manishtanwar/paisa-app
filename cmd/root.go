@@ -38,6 +38,7 @@ func init() {
 	cobra.OnInitialize(Initialize)
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file (default is ./paisa.yaml)")
 	rootCmd.PersistentFlags().StringVar(&now, "now", "", "set the current date (default is today)")
+	rootCmd.AddCommand(deleteTableCmd)
 }
 
 func Initialize() {
@@ -47,7 +48,7 @@ func Initialize() {
 	}
 	currentCommand, _, _ := rootCmd.Find(os.Args[1:])
 
-	if !lo.Contains([]string{"serve", "update"}, currentCommand.Name()) {
+	if !lo.Contains([]string{"serve", "update", "prettify", "delete-table"}, currentCommand.Name()) {
 		return
 	}
 
@@ -140,4 +141,24 @@ func InitConfig() {
 		generator.MinimalConfig(xdgDocumentDir)
 		config.LoadConfigFile(xdgDocumentPath)
 	}
+}
+
+var deleteTableCmd = &cobra.Command{
+	Use:   "delete-table <table name>",
+	Short: "Delete a table from the database",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		tableName := args[0]
+		db, err := utils.OpenDB()
+		if err != nil {
+			log.Fatal(err)
+		}
+		if !db.Migrator().HasTable(tableName) {
+			log.Fatalf("table %s does not exist", tableName)
+		}
+		if err := db.Migrator().DropTable(tableName); err != nil {
+			log.Fatalf("failed to delete table %s: %v", tableName, err)
+		}
+		log.Infof("table %s deleted", tableName)
+	},
 }
