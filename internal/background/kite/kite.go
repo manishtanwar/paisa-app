@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/ananthakumaran/paisa/internal/config"
+	"github.com/ananthakumaran/paisa/internal/prediction"
 )
 
 // KiteTime is a custom time type that can handle KITE API timestamp format
@@ -105,7 +106,7 @@ func (t *DailyTradesTask) Run(ctx context.Context, db *gorm.DB) error {
 		log.Infof("Found %d trades for account %s", len(trades), account.Name)
 
 		// Convert trades to ledger format and save
-		err = saveTradesToLedger(account.Name, trades, time.Now().Format("2006-01-02"))
+		err = saveTradesToLedger(db, account.Name, account.LedgerFile, trades, time.Now().Format("2006-01-02"))
 		if err != nil {
 			return fmt.Errorf("failed to save trades to ledger: %w", err)
 		}
@@ -126,20 +127,22 @@ func loadKiteConfig() (*KiteConfig, error) {
 		templateConfig := &KiteConfig{
 			Accounts: []KiteAccount{
 				{
-					Name:      "Primary Account",
-					APIKey:    "your_api_key_here",
-					APISecret: "your_api_secret_here",
-					UserID:    "your_user_id_here",
-					Password:  "your_password_here",
-					TOTPToken: "your_totp_secret_here",
+					Name:       "Primary Account",
+					APIKey:     "your_api_key_here",
+					APISecret:  "your_api_secret_here",
+					UserID:     "your_user_id_here",
+					Password:   "your_password_here",
+					TOTPToken:  "your_totp_secret_here",
+					LedgerFile: "",
 				},
 				{
-					Name:      "Secondary Account",
-					APIKey:    "your_second_api_key_here",
-					APISecret: "your_second_api_secret_here",
-					UserID:    "your_second_user_id_here",
-					Password:  "your_second_password_here",
-					TOTPToken: "your_second_totp_secret_here",
+					Name:       "Secondary Account",
+					APIKey:     "your_second_api_key_here",
+					APISecret:  "your_second_api_secret_here",
+					UserID:     "your_second_user_id_here",
+					Password:   "your_second_password_here",
+					TOTPToken:  "your_second_totp_secret_here",
+					LedgerFile: "",
 				},
 			},
 		}
@@ -224,9 +227,13 @@ func fetchDailyTrades(ctx context.Context, apiKey string, accessToken string) ([
 	return response.Data, nil
 }
 
-// saveTradesToLedger converts trades to ledger format and saves them
-func saveTradesToLedger(accountName string, trades []Trade, date string) error {
+// saveTradesToLedger converts trades to ledger format and saves them.
+// If ledgerFile is non-empty, trades are appended to that file; otherwise the default journal is used.
+func saveTradesToLedger(db *gorm.DB, accountName string, ledgerFile string, trades []Trade, date string) error {
 	journalPath := config.GetJournalPath()
+	if ledgerFile != "" {
+		journalPath = ledgerFile
+	}
 
 	// Read existing journal content
 	journalContent, err := os.ReadFile(journalPath)
@@ -239,10 +246,10 @@ func saveTradesToLedger(accountName string, trades []Trade, date string) error {
 	// Generate ledger entries for trades
 	var ledgerEntries []string
 	for _, trade := range trades {
-		entry := generateLedgerEntry(trade)
+		entry := generateLedgerEntry(db, trade)
 		if entry != "" {
 			// Add comment with date, time and account name before each entry
-			commentedEntry := fmt.Sprintf("; Auto added on %s %s - %s \n%s", date, commentTime, accountName, entry)
+			commentedEntry := fmt.Sprintf("\n; Auto added on %s %s - %s\n%s", date, commentTime, accountName, entry)
 			ledgerEntries = append(ledgerEntries, commentedEntry)
 		}
 	}
@@ -266,10 +273,14 @@ func saveTradesToLedger(accountName string, trades []Trade, date string) error {
 	return nil
 }
 
-// generateLedgerEntry converts a trade to ledger format
-func generateLedgerEntry(trade Trade) string {
+// generateLedgerEntry converts a trade to ledger format, using predictAccount to
+// resolve the asset account name from the existing journal's posting history.
+func generateLedgerEntry(db *gorm.DB, trade Trade) string {
 	// Use the actual trade timestamp from the API
 	tradeDate := trade.FillTimestamp.Time
+
+	// Predict the account using the trading symbol as the query
+	assetAccount := prediction.PredictAccount(db, trade.TradingSymbol, "Assets")
 
 	// Determine transaction type and quantity
 	quantity := trade.Quantity
@@ -291,9 +302,9 @@ func generateLedgerEntry(trade Trade) string {
 
 	// Generate ledger entry
 	entry := fmt.Sprintf("%s %s\n", tradeDate.Format("2006/01/02"), description)
-	entry += fmt.Sprintf("    Assets:Equity:Stocks:%s\t\t\t%d \"%s\" @ %s INR\n",
-		trade.TradingSymbol, quantity, trade.TradingSymbol, price.String())
-	entry += "    Assets:Checking:Broker:Zerodha"
+	entry += fmt.Sprintf("    %s\t\t\t%d \"%s\" @ %s INR\n",
+		assetAccount, quantity, assetAccount, price.String())
+	entry += "    Assets:Checking:Broker:Kite"
 
 	return entry
 }

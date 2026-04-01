@@ -90,3 +90,77 @@ func GetTfIdf(db *gorm.DB) gin.H {
 	})
 	return gin.H{"tf_idf": cache.vector, "index": cache.index}
 }
+
+// PredictAccount finds the best matching account for a query string, filtered by prefix.
+// It mirrors the TypeScript predictAccount helper used in import templates.
+func PredictAccount(db *gorm.DB, query string, prefix string) string {
+	cache.Do(func() {
+		loadVectorCache(db)
+	})
+
+	// Count token frequencies in the query
+	tokens := tokenize(query)
+	freqMap := make(map[string]int64)
+	for _, t := range tokens {
+		freqMap[t]++
+	}
+	uniqueCount := len(freqMap)
+	if uniqueCount == 0 || len(cache.index.Docs) == 0 {
+		return fallbackAccount(prefix)
+	}
+
+	// Compute query TF-IDF vector (same formula as TS: tf = count/unique_count)
+	numDocs := len(cache.index.Docs)
+	queryVector := make(map[string]float64)
+	for token, count := range freqMap {
+		tf := float64(count) / float64(uniqueCount)
+		idf := math.Log(float64(numDocs)/(1+float64(len(cache.index.Tokens[token])))) + 1
+		queryVector[token] = tf * idf
+	}
+
+	// Find best matching account by cosine similarity, filtered by prefix
+	bestAccount := ""
+	bestScore := -1.0
+	for account, accountVector := range cache.vector {
+		if !strings.HasPrefix(account, prefix) {
+			continue
+		}
+		score := cosineSimilarity(queryVector, accountVector)
+		if score > bestScore {
+			bestScore = score
+			bestAccount = account
+		}
+	}
+
+	if bestAccount != "" {
+		return bestAccount
+	}
+	return fallbackAccount(prefix)
+}
+
+func fallbackAccount(prefix string) string {
+	if strings.HasSuffix(prefix, ":") {
+		return prefix + "Unknown"
+	}
+	return prefix + ":Unknown"
+}
+
+func cosineSimilarity(q, a map[string]float64) float64 {
+	var dot, magQ, magA float64
+	for token, qv := range q {
+		av := a[token]
+		dot += qv * av
+		magQ += qv * qv
+		magA += av * av
+	}
+	// include tokens only in `a`
+	for token, av := range a {
+		if _, seen := q[token]; !seen {
+			magA += av * av
+		}
+	}
+	if magQ == 0 || magA == 0 {
+		return 0
+	}
+	return dot / (math.Sqrt(magQ) * math.Sqrt(magA))
+}
