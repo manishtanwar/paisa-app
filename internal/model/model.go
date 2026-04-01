@@ -16,6 +16,8 @@ import (
 	"github.com/ananthakumaran/paisa/internal/model/price"
 	"github.com/ananthakumaran/paisa/internal/model/stock_tag"
 	"github.com/ananthakumaran/paisa/internal/model/stock_target_price"
+	"github.com/ananthakumaran/paisa/internal/model/coin_order"
+	"github.com/ananthakumaran/paisa/internal/model/kite_trade"
 	"github.com/ananthakumaran/paisa/internal/model/task_execution"
 	"github.com/ananthakumaran/paisa/internal/scraper"
 	"github.com/ananthakumaran/paisa/internal/scraper/india"
@@ -39,6 +41,8 @@ func AutoMigrate(db *gorm.DB) {
 	db.AutoMigrate(&stock_tag.StockTagAssociation{})
 	db.AutoMigrate(&task_execution.TaskExecution{})
 	db.AutoMigrate(&KiteAuth{})
+	db.AutoMigrate(&kite_trade.KiteTrade{})
+	db.AutoMigrate(&coin_order.CoinOrder{})
 }
 
 func SyncJournal(db *gorm.DB) (string, error) {

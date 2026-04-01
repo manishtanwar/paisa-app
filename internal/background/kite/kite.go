@@ -18,6 +18,7 @@ import (
 
 	"github.com/ananthakumaran/paisa/internal/config"
 	"github.com/ananthakumaran/paisa/internal/ledger"
+	kite_trade "github.com/ananthakumaran/paisa/internal/model/kite_trade"
 	"github.com/ananthakumaran/paisa/internal/prediction"
 )
 
@@ -253,6 +254,7 @@ func fetchDailyTrades(ctx context.Context, apiKey string, accessToken string) ([
 
 // saveTradesToLedger converts trades to ledger format and saves them.
 // If ledgerFile is non-empty, trades are appended to that file; otherwise the default journal is used.
+// Trades already present in the DB (by trade_id) are skipped to prevent duplicate entries.
 func saveTradesToLedger(db *gorm.DB, accountName string, ledgerFile string, trades []Trade, date string) error {
 	journalPath := config.GetJournalPath()
 	if ledgerFile != "" {
@@ -267,24 +269,40 @@ func saveTradesToLedger(db *gorm.DB, accountName string, ledgerFile string, trad
 
 	commentTime := time.Now().Format("3:04 PM")
 
-	// Generate ledger entries for trades
-	var ledgerEntries []string
+	// Generate ledger entries for new (unseen) trades only
+	type pendingTrade struct {
+		entry string
+		trade Trade
+	}
+	var pending []pendingTrade
 	for _, trade := range trades {
+		exists, err := kite_trade.Exists(db, trade.TradeID)
+		if err != nil {
+			return fmt.Errorf("failed to check trade existence: %w", err)
+		}
+		if exists {
+			log.Infof("Skipping already-recorded trade %s (%s)", trade.TradeID, trade.TradingSymbol)
+			continue
+		}
 		entry := generateLedgerEntry(db, trade)
 		if entry != "" {
-			// Add comment with date, time and account name before each entry
 			commentedEntry := fmt.Sprintf("\n; Auto added on %s %s - %s\n%s", date, commentTime, accountName, entry)
-			ledgerEntries = append(ledgerEntries, commentedEntry)
+			pending = append(pending, pendingTrade{entry: commentedEntry, trade: trade})
 		}
 	}
 
-	if len(ledgerEntries) == 0 {
-		log.Info("No valid ledger entries generated from trades")
+	if len(pending) == 0 {
+		log.Info("No new trade entries to add")
 		return nil
 	}
 
+	var entries []string
+	for _, p := range pending {
+		entries = append(entries, p.entry)
+	}
+
 	// Join entries with double newlines for better readability
-	tradeSection := "\n" + strings.Join(ledgerEntries, "\n\n") + "\n"
+	tradeSection := "\n" + strings.Join(entries, "\n\n") + "\n"
 
 	// Append to journal file and prettify
 	updatedContent := ledger.FormatContent(string(journalContent) + tradeSection)
@@ -293,7 +311,28 @@ func saveTradesToLedger(db *gorm.DB, accountName string, ledgerFile string, trad
 		return fmt.Errorf("failed to write updated journal file: %w", err)
 	}
 
-	log.Infof("Added %d trade entries to journal file", len(ledgerEntries))
+	// Record trades in DB only after a successful ledger write
+	for _, p := range pending {
+		t := p.trade
+		record := &kite_trade.KiteTrade{
+			TradeID:           t.TradeID,
+			OrderID:           t.OrderID,
+			ExchangeOrderID:   t.ExchangeOrderID,
+			TradingSymbol:     t.TradingSymbol,
+			Exchange:          t.Exchange,
+			TransactionType:   t.TransactionType,
+			Product:           t.Product,
+			AveragePrice:      t.AveragePrice.String(),
+			Quantity:          t.Quantity,
+			FillTimestamp:     t.FillTimestamp.Time,
+			ExchangeTimestamp: t.ExchangeTimestamp.Time,
+		}
+		if err := kite_trade.Create(db, record); err != nil {
+			log.Warnf("Failed to record trade %s in DB: %v", t.TradeID, err)
+		}
+	}
+
+	log.Infof("Added %d trade entries to journal file", len(pending))
 	return nil
 }
 

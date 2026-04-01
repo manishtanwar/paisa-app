@@ -16,6 +16,7 @@ import (
 
 	"github.com/ananthakumaran/paisa/internal/config"
 	"github.com/ananthakumaran/paisa/internal/ledger"
+	coin_order "github.com/ananthakumaran/paisa/internal/model/coin_order"
 	"github.com/ananthakumaran/paisa/internal/prediction"
 )
 
@@ -101,6 +102,7 @@ func fetchCoinTransactions(ctx context.Context, apiKey string, accessToken strin
 
 // saveCoinTransactionsToLedger converts MF orders to ledger format and saves them.
 // If coinLedgerFile is non-empty, entries are appended to that file; otherwise the default journal is used.
+// Orders already present in the DB (by order_id) are skipped to prevent duplicate entries.
 func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFile string, orders []MFOrder, date string) error {
 	if len(orders) == 0 {
 		log.Info("No Coin MF orders to save")
@@ -119,21 +121,38 @@ func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFil
 
 	commentTime := time.Now().Format("3:04 PM")
 
-	var ledgerEntries []string
+	type pendingOrder struct {
+		entry string
+		order MFOrder
+	}
+	var pending []pendingOrder
 	for _, order := range orders {
+		exists, err := coin_order.Exists(db, order.OrderID)
+		if err != nil {
+			return fmt.Errorf("failed to check order existence: %w", err)
+		}
+		if exists {
+			log.Infof("Skipping already-recorded Coin order %s (%s)", order.OrderID, order.Fund)
+			continue
+		}
 		entry := generateMFLedgerEntry(db, order)
 		if entry != "" {
 			commentedEntry := fmt.Sprintf("\n; Auto added on %s %s - %s\n%s", date, commentTime, accountName, entry)
-			ledgerEntries = append(ledgerEntries, commentedEntry)
+			pending = append(pending, pendingOrder{entry: commentedEntry, order: order})
 		}
 	}
 
-	if len(ledgerEntries) == 0 {
-		log.Info("No valid ledger entries generated from Coin MF orders")
+	if len(pending) == 0 {
+		log.Info("No new Coin MF entries to add")
 		return nil
 	}
 
-	tradeSection := "\n" + strings.Join(ledgerEntries, "\n\n") + "\n"
+	var entries []string
+	for _, p := range pending {
+		entries = append(entries, p.entry)
+	}
+
+	tradeSection := "\n" + strings.Join(entries, "\n\n") + "\n"
 
 	// Append to journal file and prettify
 	updatedContent := ledger.FormatContent(string(journalContent) + tradeSection)
@@ -142,7 +161,38 @@ func saveCoinTransactionsToLedger(db *gorm.DB, accountName string, coinLedgerFil
 		return fmt.Errorf("failed to write updated journal file: %w", err)
 	}
 
-	log.Infof("Added %d Coin MF entries to journal file", len(ledgerEntries))
+	// Record orders in DB only after a successful ledger write
+	for _, p := range pending {
+		o := p.order
+		record := &coin_order.CoinOrder{
+			OrderID:           o.OrderID,
+			ExchangeOrderID:   o.ExchangeOrderID,
+			TradingSymbol:     o.TradingSymbol,
+			Status:            o.Status,
+			StatusMessage:     o.StatusMessage,
+			Fund:              o.Fund,
+			Folio:             o.Folio,
+			OrderTimestamp:    o.OrderTimestamp.Time,
+			ExchangeTimestamp: o.ExchangeTimestamp,
+			SettlementID:      o.SettlementID,
+			TransactionType:   o.TransactionType,
+			Amount:            o.Amount.String(),
+			Variety:           o.Variety,
+			PurchaseType:      o.PurchaseType,
+			Quantity:          o.Quantity.String(),
+			Price:             o.Price.String(),
+			LastPrice:         o.LastPrice.String(),
+			AveragePrice:      o.AveragePrice.String(),
+			PlacedBy:          o.PlacedBy,
+			LastPriceDate:     o.LastPriceDate,
+			Tag:               o.Tag,
+		}
+		if err := coin_order.Create(db, record); err != nil {
+			log.Warnf("Failed to record Coin order %s in DB: %v", o.OrderID, err)
+		}
+	}
+
+	log.Infof("Added %d Coin MF entries to journal file", len(pending))
 	return nil
 }
 
