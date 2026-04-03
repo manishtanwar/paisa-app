@@ -116,7 +116,7 @@ type AllocationTarget struct {
 	Name     string             `json:"name" yaml:"name"`
 	Target   float64            `json:"target" yaml:"target"`
 	Accounts []string           `json:"accounts" yaml:"accounts"`
-	Children []AllocationTarget `json:"children" yaml:"children"`
+	Children []AllocationTarget `json:"children" yaml:"children,omitempty"`
 }
 
 type CreditCard struct {
@@ -300,6 +300,16 @@ func LoadConfigFile(path string) {
 	log.Info("Using config file: ", path)
 }
 
+func normalizeAllocationTargets(targets []AllocationTarget) {
+	for i := range targets {
+		if targets[i].Children == nil {
+			targets[i].Children = []AllocationTarget{}
+		} else {
+			normalizeAllocationTargets(targets[i].Children)
+		}
+	}
+}
+
 func LoadConfig(content []byte, cp string) error {
 	var configJson interface{}
 	err := yaml.Unmarshal(content, &configJson)
@@ -322,6 +332,14 @@ func LoadConfig(content []byte, cp string) error {
 
 	if err != nil {
 		return err
+	}
+
+	normalizeAllocationTargets(config.AllocationTargets)
+	for i := range config.Goals.Retirement {
+		normalizeAllocationTargets(config.Goals.Retirement[i].AllocationTargets)
+	}
+	for i := range config.Goals.Savings {
+		normalizeAllocationTargets(config.Goals.Savings[i].AllocationTargets)
 	}
 
 	if cp != "" && configPath == "" {
