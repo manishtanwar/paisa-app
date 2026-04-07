@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ananthakumaran/paisa/internal/accounting"
-	"github.com/ananthakumaran/paisa/internal/background"
 	"github.com/ananthakumaran/paisa/internal/config"
 	"github.com/ananthakumaran/paisa/internal/generator"
 	"github.com/ananthakumaran/paisa/internal/ledger"
@@ -484,9 +483,9 @@ func Listen(db *gorm.DB, port int) error {
 func ListenWithContext(ctx context.Context, db *gorm.DB, port int) error {
 	router := Build(db, true)
 
-	// Initialize and start background scheduler
-	background.GetScheduler().Initialize(db)
-	background.GetScheduler().Start()
+	// Background scheduler disabled
+	// background.GetScheduler().Initialize(db)
+	// background.GetScheduler().Start()
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -508,9 +507,9 @@ func ListenWithContext(ctx context.Context, db *gorm.DB, port int) error {
 	// Graceful shutdown
 	log.Info("Shutting down HTTP server...")
 
-	// Stop the background scheduler first
-	log.Info("Stopping background scheduler...")
-	background.GetScheduler().Stop()
+	// Background scheduler disabled
+	// log.Info("Stopping background scheduler...")
+	// background.GetScheduler().Stop()
 
 	// Then shutdown the HTTP server
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
