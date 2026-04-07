@@ -116,8 +116,8 @@ func (s *Scheduler) Stop() {
 // registerTasks registers all background tasks with the scheduler
 func (s *Scheduler) registerTasks() {
 	tasks := []Task{
-		&kite.DailyTradesTask{},
-		&prices.DailyPriceUpdateTask{},
+		// &kite.DailyTradesTask{},
+		// &prices.DailyPriceUpdateTask{},
 	}
 
 	for _, task := range tasks {

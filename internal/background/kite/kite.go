@@ -125,26 +125,26 @@ func (t *DailyTradesTask) Run(ctx context.Context, db *gorm.DB) error {
 			anyChanges = true
 		}
 
-		log.Infof("Successfully processed %d trades for account %s", len(trades), account.Name)
+		// log.Infof("Successfully processed %d trades for account %s", len(trades), account.Name)
 
-		// Fetch and save Coin (mutual fund) transactions
-		mfOrders, err := fetchCoinTransactions(ctx, account.APIKey, accessToken)
-		if err != nil {
-			log.Warnf("Failed to fetch Coin MF transactions for account %s: %v", account.Name, err)
-			continue
-		}
+		// // Fetch and save Coin (mutual fund) transactions
+		// mfOrders, err := fetchCoinTransactions(ctx, account.APIKey, accessToken)
+		// if err != nil {
+		// 	log.Warnf("Failed to fetch Coin MF transactions for account %s: %v", account.Name, err)
+		// 	continue
+		// }
 
-		log.Infof("Found %d Coin MF orders for account %s", len(mfOrders), account.Name)
+		// log.Infof("Found %d Coin MF orders for account %s", len(mfOrders), account.Name)
 
-		changedCoins, err := saveCoinTransactionsToLedger(db, account.Name, account.CoinLedgerFile, mfOrders, time.Now().Format("2006-01-02"))
-		if err != nil {
-			return fmt.Errorf("failed to save Coin MF transactions to ledger: %w", err)
-		}
-		if changedCoins {
-			anyChanges = true
-		}
+		// changedCoins, err := saveCoinTransactionsToLedger(db, account.Name, account.CoinLedgerFile, mfOrders, time.Now().Format("2006-01-02"))
+		// if err != nil {
+		// 	return fmt.Errorf("failed to save Coin MF transactions to ledger: %w", err)
+		// }
+		// if changedCoins {
+		// 	anyChanges = true
+		// }
 
-		log.Infof("Successfully processed Coin MF orders for account %s", account.Name)
+		// log.Infof("Successfully processed Coin MF orders for account %s", account.Name)
 	}
 
 	if anyChanges {
