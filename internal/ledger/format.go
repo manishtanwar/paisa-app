@@ -12,7 +12,7 @@ var (
 	periodicLineRe = regexp.MustCompile(`^[~=]`)
 	// Full posting: indent + account (lazy, stops at first double-space) + 2+space sep + prefix + amount + suffix
 	// Go doesn't support lookaheads, so we use lazy matching with the 2+-space separator
-	fullPostingRe = regexp.MustCompile(`^([ \t]+)((?:[*!][ \t]+)?[^; \t][^;\t]*?)([ \t]{2,})([^;]*?)([+-]?[.,0-9]+)(.*)$`)
+	fullPostingRe = regexp.MustCompile(`^([ \t]+)((?:[*!][ \t]+)?[^; \t][^;\t]*?)([ \t]+)([^;]*?)([+-]?[.,0-9]+)(.*)$`)
 	// Partial posting: indent + account only (no amount after)
 	partialPostingRe = regexp.MustCompile(`^([ \t]+)((?:[*!][ \t]+)?[^; \t][^;\t]*)$`)
 )
