@@ -230,6 +230,10 @@ func parseXLSX(filePath string) ([][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("XLSX read error: %w", err)
 	}
+	// excelize returns all columns from A regardless of the sheet's used range.
+	// xlsx.js (used by the web UI) starts from the sheet's first used column, so
+	// templates are written expecting that offset. Strip leading empty columns to match.
+	rows = stripLeadingEmptyCols(rows)
 	return filterBlankRows(rows), nil
 }
 
@@ -411,6 +415,34 @@ var xlsBuiltinFormats = map[uint16]string{
 	39: "#,##0.00;(#,##0.00)",
 	40: "#,##0.00;[Red](#,##0.00)",
 	48: "##0.0E+0",
+}
+
+// stripLeadingEmptyCols removes the leading empty columns that XLSX files often
+// have when the sheet range doesn't start at column A. excelize always starts
+// from column A; xlsx.js (the web UI) starts from the sheet's first used column,
+// so templates are written expecting that offset.
+func stripLeadingEmptyCols(rows [][]string) [][]string {
+	minCol := -1
+	for _, row := range rows {
+		for j, cell := range row {
+			if strings.TrimSpace(cell) != "" {
+				if minCol == -1 || j < minCol {
+					minCol = j
+				}
+				break
+			}
+		}
+	}
+	if minCol <= 0 {
+		return rows
+	}
+	result := make([][]string, len(rows))
+	for i, row := range rows {
+		if len(row) > minCol {
+			result[i] = row[minCol:]
+		}
+	}
+	return result
 }
 
 // filterBlankRows removes rows where every cell is empty or whitespace-only.
