@@ -16,6 +16,7 @@ import (
 	"github.com/ananthakumaran/paisa/internal/model/template"
 	"github.com/aymerick/raymond"
 	"github.com/extrame/xls"
+	log "github.com/sirupsen/logrus"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
@@ -49,6 +50,7 @@ func Run(filePath, templateName string, db *gorm.DB, noPredict bool) (string, er
 	tpl.RegisterHelpers(buildHelpers(db, noPredict))
 
 	allRows := asRows(data)
+	log.Debugf("parsed %d rows from %s", len(allRows), filePath)
 
 	var outputs []string
 	for _, row := range allRows {
@@ -74,6 +76,7 @@ func Run(filePath, templateName string, db *gorm.DB, noPredict bool) (string, er
 			outputs = append(outputs, out)
 		}
 	}
+	log.Debugf("%d of %d rows produced output", len(outputs), len(allRows))
 
 	result := strings.Join(outputs, "\n\n")
 	result = ledger.FormatContent(result)

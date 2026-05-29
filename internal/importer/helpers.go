@@ -3,7 +3,6 @@ package importer
 import (
 	"fmt"
 	"math"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,6 +11,8 @@ import (
 
 	"github.com/ananthakumaran/paisa/internal/prediction"
 	"github.com/aymerick/raymond"
+	"github.com/dlclark/regexp2"
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -233,27 +234,30 @@ func buildHelpers(db *gorm.DB, noPredict bool) map[string]interface{} {
 		// Regexp helpers
 		"regexpTest": func(str, pattern interface{}) bool {
 			s := fmt.Sprintf("%v", str)
-			re, err := regexp.Compile(fmt.Sprintf("%v", pattern))
+			p := fmt.Sprintf("%v", pattern)
+			re, err := regexp2.Compile(p, 0)
 			if err != nil {
+				log.Warnf("regexpTest: invalid pattern %q: %v", p, err)
 				return false
 			}
-			return re.MatchString(s)
+			m, _ := re.MatchString(s)
+			return m
 		},
 		"regexpMatch": func(str, pattern interface{}, opts *raymond.Options) interface{} {
 			s := fmt.Sprintf("%v", str)
-			re, err := regexp.Compile(fmt.Sprintf("%v", pattern))
+			re, err := regexp2.Compile(fmt.Sprintf("%v", pattern), 0)
 			if err != nil {
 				return nil
 			}
-			m := re.FindStringSubmatch(s)
-			if m == nil {
+			m, err := re.FindStringMatch(s)
+			if err != nil || m == nil {
 				return nil
 			}
 			group := hashInt(opts, "group")
-			if group >= len(m) {
+			if group >= m.GroupCount() {
 				return nil
 			}
-			return raymond.SafeString(m[group])
+			return raymond.SafeString(m.GroupByNumber(group).String())
 		},
 		// match: key is return value, value is regexp pattern; keys sorted for determinism
 		"match": func(str interface{}, opts *raymond.Options) interface{} {
@@ -265,11 +269,11 @@ func buildHelpers(db *gorm.DB, noPredict bool) map[string]interface{} {
 			}
 			sort.Strings(keys)
 			for _, value := range keys {
-				re, err := regexp.Compile(fmt.Sprintf("%v", hash[value]))
+				re, err := regexp2.Compile(fmt.Sprintf("%v", hash[value]), 0)
 				if err != nil {
 					continue
 				}
-				if re.MatchString(s) {
+				if matched, _ := re.MatchString(s); matched {
 					return raymond.SafeString(value)
 				}
 			}
@@ -305,7 +309,7 @@ func buildHelpers(db *gorm.DB, noPredict bool) map[string]interface{} {
 			if pattern == "" {
 				pattern = ".+"
 			}
-			re, err := regexp.Compile(pattern)
+			re, err := regexp2.Compile(pattern, 0)
 			if err != nil {
 				return nil
 			}
@@ -318,10 +322,10 @@ func buildHelpers(db *gorm.DB, noPredict bool) map[string]interface{} {
 			group := hashInt(opts, "group")
 			for i := idx - 1; i >= 0; i-- {
 				cell := fmt.Sprintf("%v", sheet[i][colStr])
-				m := re.FindStringSubmatch(cell)
-				if m != nil {
-					if group > 0 && group < len(m) {
-						return raymond.SafeString(m[group])
+				m, err := re.FindStringMatch(cell)
+				if err == nil && m != nil {
+					if group > 0 && group < m.GroupCount() {
+						return raymond.SafeString(m.GroupByNumber(group).String())
 					}
 					return raymond.SafeString(cell)
 				}
@@ -334,7 +338,7 @@ func buildHelpers(db *gorm.DB, noPredict bool) map[string]interface{} {
 			if pattern == "" {
 				pattern = ".+"
 			}
-			re, err := regexp.Compile(pattern)
+			re, err := regexp2.Compile(pattern, 0)
 			if err != nil {
 				return nil
 			}
@@ -347,10 +351,10 @@ func buildHelpers(db *gorm.DB, noPredict bool) map[string]interface{} {
 			group := hashInt(opts, "group")
 			for i := idx + 1; i < len(sheet); i++ {
 				cell := fmt.Sprintf("%v", sheet[i][colStr])
-				m := re.FindStringSubmatch(cell)
-				if m != nil {
-					if group > 0 && group < len(m) {
-						return raymond.SafeString(m[group])
+				m, err := re.FindStringMatch(cell)
+				if err == nil && m != nil {
+					if group > 0 && group < m.GroupCount() {
+						return raymond.SafeString(m.GroupByNumber(group).String())
 					}
 					return raymond.SafeString(cell)
 				}
