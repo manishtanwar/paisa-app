@@ -50,7 +50,7 @@ func selectAgent() {
 }
 
 type Quote struct {
-	Close []float64
+	Close []*float64
 }
 
 type Indicators struct {
@@ -116,17 +116,35 @@ func GetHistory(ticker string, commodityName string) ([]*price.Price, error) {
 
 		exchangePrice = btree.New(2)
 		for i, t := range exchangeResult.Timestamp {
-			exchangePrice.ReplaceOrInsert(ExchangePrice{Timestamp: t, Close: exchangeResult.Indicators.Quote[0].Close[i]})
+			close := exchangeResult.Indicators.Quote[0].Close[i]
+			if close == nil {
+				// Yahoo sometimes returns a null close for an in-progress
+				// or missing candle; skip it instead of treating it as 0.
+				continue
+			}
+			exchangePrice.ReplaceOrInsert(ExchangePrice{Timestamp: t, Close: *close})
 		}
 	}
 
 	for i, timestamp := range result.Timestamp {
+		close := result.Indicators.Quote[0].Close[i]
+		if close == nil {
+			continue
+		}
 		date := time.Unix(timestamp, 0)
-		value := result.Indicators.Quote[0].Close[i]
+		value := *close
 
 		if needExchangePrice {
-			exchangePrice := utils.BTreeDescendFirstLessOrEqual(exchangePrice, ExchangePrice{Timestamp: timestamp})
-			value = value * exchangePrice.Close
+			if exchangePrice.Len() == 0 {
+				continue
+			}
+			rate := utils.BTreeDescendFirstLessOrEqual(exchangePrice, ExchangePrice{Timestamp: timestamp})
+			if rate.Timestamp == 0 {
+				// No exchange rate at or before this timestamp; skip rather
+				// than silently pricing the commodity at 0.
+				continue
+			}
+			value = value * rate.Close
 		}
 
 		price := price.Price{Date: date, CommodityType: config.Stock, CommodityID: ticker, CommodityName: commodityName, Value: decimal.NewFromFloat(value)}
