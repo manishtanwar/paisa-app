@@ -1,0 +1,2 @@
+- [ ] Have liabilites account show transactions, just like assets have right now
+- [ ] Have expenses account show transactions, just like assests have right now
