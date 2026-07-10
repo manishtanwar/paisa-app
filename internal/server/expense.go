@@ -75,6 +75,38 @@ func GetExpense(db *gorm.DB) gin.H {
 		"graph": graph}
 }
 
+type ExpenseBreakdown struct {
+	Group  string          `json:"group"`
+	Amount decimal.Decimal `json:"amount"`
+}
+
+func GetExpenseBalance(db *gorm.DB) gin.H {
+	expenses := query.Init(db).Like("Expenses:%").NotAccountPrefix("Expenses:Tax").All()
+	return gin.H{"expense_breakdowns": computeExpenseBreakdown(expenses)}
+}
+
+func computeExpenseBreakdown(postings []posting.Posting) map[string]ExpenseBreakdown {
+	accounts := make(map[string]bool)
+	for _, p := range postings {
+		var parts []string
+		for _, part := range strings.Split(p.Account, ":") {
+			parts = append(parts, part)
+			accounts[strings.Join(parts, ":")] = true
+		}
+	}
+
+	result := make(map[string]ExpenseBreakdown)
+	for group := range accounts {
+		ps := lo.Filter(postings, func(p posting.Posting, _ int) bool { return utils.IsSameOrParent(p.Account, group) })
+		amount := lo.Reduce(ps, func(agg decimal.Decimal, p posting.Posting, _ int) decimal.Decimal {
+			return agg.Add(p.Amount)
+		}, decimal.Zero)
+		result[group] = ExpenseBreakdown{Group: group, Amount: amount}
+	}
+
+	return result
+}
+
 func GetExpenseAllocation(db *gorm.DB, c *gin.Context) gin.H {
 	// Get month parameter from query string
 	month := c.Query("month")

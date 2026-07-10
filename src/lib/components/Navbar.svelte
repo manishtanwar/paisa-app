@@ -75,6 +75,7 @@
       label: "Expenses",
       href: "/expense",
       children: [
+        { label: "Balance", href: "/balance" },
         { label: "Advanced", href: "/advanced", monthPicker: true },
         { label: "Monthly", href: "/monthly", monthPicker: true, dateRangeSelector: true },
         { label: "Yearly", href: "/yearly", financialYearPicker: true },

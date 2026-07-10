@@ -34,6 +34,22 @@ export function indendedLiabilityAccountName(cell: CellComponent) {
 `;
 }
 
+export function indendedExpenseAccountName(cell: CellComponent) {
+  const account = cell.getValue();
+  let children = "";
+  const data = cell.getData();
+  if ((data._children?.length || 0) > 0) {
+    children = `(${data._children?.length})`;
+  }
+  return `
+<span class="whitespace-nowrap" style="max-width: max(15rem, 33.33vw); overflow: hidden;">
+  <span class="has-text-grey custom-icon">${iconText(account)}</span>
+  <a href="/expense/transactions/${account}">${lastName(account)}</a>
+  <span class="has-text-grey-light is-size-7">${children}</span>
+</span>
+`;
+}
+
 export function accountName(cell: CellComponent) {
   const account = cell.getValue();
   return `

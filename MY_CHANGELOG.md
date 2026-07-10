@@ -21,4 +21,6 @@
 - Disable background tasks & Kite/Coin sync
 - Fix Yahoo price fetcher
 - Add transaction drill-down for Liabilities accounts (click account name in balance table, like Assets) and Expenses accounts (click category label in monthly/yearly breakdown charts)
+- Fix crash when navigating to a page without a matching Navbar sub-link (e.g. the new transactions drill-down pages)
+- Add an Expenses "Balance" page listing expense accounts in a tree table, like Assets/Liabilities, with each account linking to its transactions
 

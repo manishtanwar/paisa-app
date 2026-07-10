@@ -185,6 +185,11 @@ export interface LiabilityBreakdown {
   apr: number;
 }
 
+export interface ExpenseBreakdown {
+  group: string;
+  amount: number;
+}
+
 export interface Aggregate {
   date: dayjs.Dayjs;
   account: string;
@@ -572,6 +577,9 @@ export function ajax(route: "/api/liabilities/repayment"): Promise<{ repayments:
 export function ajax(
   route: "/api/liabilities/balance"
 ): Promise<{ liability_breakdowns: LiabilityBreakdown[] }>;
+export function ajax(
+  route: "/api/expense/balance"
+): Promise<{ expense_breakdowns: ExpenseBreakdown[] }>;
 export function ajax(route: "/api/price"): Promise<{ prices: Record<string, Price[]> }>;
 export function ajax(route: "/api/transaction"): Promise<{ transactions: Transaction[] }>;
 export function ajax(
