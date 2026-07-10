@@ -134,6 +134,10 @@ func Build(db *gorm.DB, enableCompression bool) *gin.Engine {
 		account := c.Param("account")
 		c.JSON(200, GetAccountGain(db, account))
 	})
+	router.GET("/api/account/transactions/:account", func(c *gin.Context) {
+		account := c.Param("account")
+		c.JSON(200, GetAccountTransactions(db, account))
+	})
 	router.GET("/api/income", func(c *gin.Context) {
 		c.JSON(200, GetIncome(db))
 	})

@@ -21,6 +21,7 @@ import type { Writable } from "svelte/store";
 import { iconify } from "$lib/icon";
 import { byExpenseGroup, expenseGroup, pieData } from "$lib/expense";
 import type { Dayjs } from "dayjs";
+import { goto } from "$app/navigation";
 
 export function renderCalendar(
   expenses: Posting[],
@@ -369,7 +370,7 @@ export function renderCurrentExpensesBreakdown(z: d3.ScaleOrdinal<string, string
   const y = d3.scaleBand().paddingInner(0.1).paddingOuter(0);
 
   const xAxis = g.append("g").attr("class", "axis y");
-  const yAxis = g.append("g").attr("class", "axis y dark");
+  const yAxis = g.append("g").attr("class", "axis y dark link");
 
   const bar = g.append("g");
 
@@ -410,6 +411,10 @@ export function renderCurrentExpensesBreakdown(z: d3.ScaleOrdinal<string, string
     yAxis
       .transition(t)
       .call(d3.axisLeft(y).tickFormat((g) => iconify(g, { group: "Expenses", suffix: true })));
+
+    yAxis.selectAll(".tick").on("click", (_event, category: string) => {
+      goto(`/expense/transactions/Expenses:${category}`);
+    });
 
     const tooltipContent = (d: Point) => {
       const total = _.sumBy(d.postings, (p) => p.amount);

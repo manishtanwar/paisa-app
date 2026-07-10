@@ -28,7 +28,7 @@ export function indendedLiabilityAccountName(cell: CellComponent) {
   return `
 <span class="whitespace-nowrap" style="max-width: max(15rem, 33.33vw); overflow: hidden;">
   <span class="has-text-grey custom-icon">${iconText(account)}</span>
-  <span>${lastName(account)}</span>
+  <a href="/liabilities/transactions/${account}">${lastName(account)}</a>
   <span class="has-text-grey-light is-size-7">${children}</span>
 </span>
 `;

@@ -607,6 +607,12 @@ export function ajax(
   asset_breakdown: AssetBreakdown;
 }>;
 
+export function ajax(
+  route: "/api/account/transactions/:account",
+  options?: RequestOptions,
+  params?: Record<string, string>
+): Promise<{ postings: Posting[] }>;
+
 export function ajax(route: "/api/allocation"): Promise<{
   aggregates: { [key: string]: Aggregate };
   aggregates_timeline: { [key: string]: Aggregate }[];

@@ -20,4 +20,5 @@
 - Fix UI of goals configuration
 - Disable background tasks & Kite/Coin sync
 - Fix Yahoo price fetcher
+- Add transaction drill-down for Liabilities accounts (click account name in balance table, like Assets) and Expenses accounts (click category label in monthly/yearly breakdown charts)
 
