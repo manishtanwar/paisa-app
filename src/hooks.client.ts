@@ -76,6 +76,10 @@ export const handleError: HandleClientError = async ({ error, status, message })
 };
 
 function formatError(error: any) {
+  if (!error) {
+    return "Unknown error";
+  }
+
   if (error.stack) {
     return error.stack;
   }
@@ -108,9 +112,20 @@ function displayError(error: any) {
   });
 }
 
+// Benign browser warning (not an application error), triggered by normal
+// layout changes such as resizing a table column. event.error is often
+// null for this specific message, which used to crash formatError itself.
+// https://github.com/WICG/resize-observer/issues/38
+function isResizeObserverLoopError(message: string) {
+  return typeof message === "string" && message.includes("ResizeObserver loop");
+}
+
 window.addEventListener("unhandledrejection", (event) => {
   displayError(event.reason);
 });
 window.addEventListener("error", (event) => {
+  if (isResizeObserverLoopError(event.message)) {
+    return;
+  }
   displayError(event.error);
 });
