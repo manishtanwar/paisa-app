@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"path/filepath"
 	"sort"
 	"time"
@@ -155,7 +156,27 @@ func validateFile(file LedgerFile) ([]ledger.LedgerFileError, string, error) {
 
 	defer os.Remove(tmpfile.Name())
 
-	if _, err := tmpfile.Write([]byte(file.Content)); err != nil {
+	// The temp file is validated in isolation, so it has no visibility
+	// into account/commodity declarations that live in accounts.ledger
+	// (only included by main.ledger). Prepend an include so --pedantic/
+	// --strict doesn't flag every account as unknown.
+	content := file.Content
+	var lineOffset uint64
+
+	declarationsPath := filepath.Join(dir, "accounts.ledger")
+	if filepath.Base(filePath) != "accounts.ledger" {
+		if _, err := os.Stat(declarationsPath); err == nil {
+			relInclude, err := filepath.Rel(fileDir, declarationsPath)
+			if err != nil {
+				log.Warn(err)
+			} else {
+				content = fmt.Sprintf("include %s\n%s", filepath.ToSlash(relInclude), content)
+				lineOffset = 1
+			}
+		}
+	}
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
 		log.Fatal(err)
 	}
 
@@ -163,7 +184,19 @@ func validateFile(file LedgerFile) ([]ledger.LedgerFileError, string, error) {
 		log.Fatal(err)
 	}
 
-	return ledger.Cli().ValidateFile(tmpfile.Name())
+	errors, output, err := ledger.Cli().ValidateFile(tmpfile.Name())
+
+	// Shift line numbers back to account for the prepended include line.
+	for i := range errors {
+		if errors[i].LineFrom > lineOffset {
+			errors[i].LineFrom -= lineOffset
+		}
+		if errors[i].LineTo > lineOffset {
+			errors[i].LineTo -= lineOffset
+		}
+	}
+
+	return errors, output, err
 }
 
 func readLedgerFile(dir string, path string) *LedgerFile {

@@ -24,4 +24,5 @@
 - Fix crash when navigating to a page without a matching Navbar sub-link (e.g. the new transactions drill-down pages)
 - Add an Expenses "Balance" page listing expense accounts in a tree table, like Assets/Liabilities, with each account linking to its transactions
 - Update capital gains tax engine for the Jul 2024 budget (new equity 12.5%/20% LTCG/STCG rates, 24 month holding period + no indexation for debt/equity35/unlisted equity), fix Gold ETF missing from the capital gains query, and add Short/Long Term Taxable Gain columns + an expandable ITR-style quarter-wise breakup to the Capital Gains page, all shown with 2 decimal precision
+- Fix editor validate (--pedantic/--strict) flagging all accounts as unknown by including accounts.ledger before validating
 

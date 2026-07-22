@@ -37,9 +37,4 @@ git push
 
 The commit message must be the actual detail of the feature (what was added/changed/fixed), not a generic message like "squash merge" or "merge branch". It should read like the `MY_CHANGELOG.md` entry, expanded if useful.
 
-Optional cleanup after a successful merge:
-
-```bash
-git branch -d u/manish/<feature-name>
-git push origin --delete u/manish/<feature-name>   # only if it was pushed
-```
+Don't do cleanup of feature branch (let that be there).
