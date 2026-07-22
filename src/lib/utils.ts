@@ -275,6 +275,8 @@ export interface Tax {
   short_term: number;
   long_term: number;
   slab: number;
+  short_term_taxable: number;
+  long_term_taxable: number;
 }
 
 export interface PostingPair {
